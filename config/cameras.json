@@ -1,0 +1,11 @@
+{
+  "base_url": "https://ristmikud.tallinn.ee/last/",
+  "collection_interval": 1,
+  "cameras": [
+    {
+      "id": "cam104",
+      "name": "Viru väljak, suund Parnu mnt",
+      "url": "https://ristmikud.tallinn.ee/last/cam104.jpg"
+    }
+  ]
+}
