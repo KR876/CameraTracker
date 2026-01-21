@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import requests
 import time
@@ -7,6 +8,7 @@ import logging
 from pathlib import Path
 import urllib3
 import math
+import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -20,7 +22,6 @@ logging.basicConfig(
     ]
 )
 
-
 class TrafficCollector:
     def __init__(self):
         project_root = Path(__file__).parent.parent
@@ -32,11 +33,14 @@ class TrafficCollector:
         self.cameras = config['cameras']
         self.interval = config['collection_interval']
 
-        logging.info("Loading YOLO model...")
-        self.model = YOLO('yolov8x.pt')
+        self.temp_dir = Path('temp')
+        self.temp_dir.mkdir(exist_ok=True)
+
+        self.model = YOLO('yolov8l.pt')
 
         self.detection_history = {}
         self.max_history_frames = 20
+        self.history_lock = threading.Lock()
 
         logging.info(f"Monitoring {len(self.cameras)} cameras")
 
@@ -74,17 +78,17 @@ class TrafficCollector:
             if not found_match:
                 stationary_count = 0
 
-        # Only consider parked if stationary for ALL 20 frames
+        # Only consider parked if stationary for all 20 frames
         return stationary_count >= self.max_history_frames
 
     def detect_vehicles(self, image_path, camera_id):
         results = self.model(image_path, verbose=False)
         boxes = results[0].boxes
 
-        if camera_id not in self.detection_history:
-            self.detection_history[camera_id] = []
-
-        history = self.detection_history[camera_id]
+        with self.history_lock:
+            if camera_id not in self.detection_history:
+                self.detection_history[camera_id] = []
+            history = self.detection_history[camera_id].copy()
 
         # COCO class IDs: 2=car, 5=bus, 7=truck
         counts = {'total': 0, 'cars': 0, 'buses': 0}
@@ -102,7 +106,10 @@ class TrafficCollector:
                 counts['buses'] += 1
                 counts['total'] += 1
 
-        history.append(boxes)
+        with self.history_lock:
+            self.detection_history[camera_id].append(boxes)
+            if len(self.detection_history[camera_id]) > self.max_history_frames:
+                self.detection_history[camera_id].pop(0)
 
         if len(history) > self.max_history_frames:
             history.pop(0)
@@ -115,10 +122,11 @@ class TrafficCollector:
             response = requests.get(url, timeout=1, verify=False)
 
             if response.status_code == 200:
-                with open('temp.jpg', 'wb') as f:
+                temp_file = self.temp_dir / f"{camera['id']}.jpg"
+                with open(temp_file, 'wb') as f:
                     f.write(response.content)
 
-                counts = self.detect_vehicles('temp.jpg', camera['id'])
+                counts = self.detect_vehicles(str(temp_file), camera['id'])
 
                 timestamp = datetime.now().strftime('%H:%M:%S')
                 logging.info(
@@ -139,10 +147,17 @@ class TrafficCollector:
 
         try:
             while True:
-                for camera in self.cameras:
-                    self.collect_from_camera(camera)
+                start_time = time.time()
 
-                time.sleep(self.interval)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.cameras)) as executor:
+                    executor.map(self.collect_from_camera, self.cameras)
+
+                elapsed = time.time() - start_time
+                logging.info(f"--- Cycle completed in {elapsed:.2f}s ---\n")
+
+                sleep_time = max(0, self.interval - elapsed)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
 
         except KeyboardInterrupt:
             logging.info("\n" + "=" * 70)

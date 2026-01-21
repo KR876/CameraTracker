@@ -1,11 +1,31 @@
 {
   "base_url": "https://ristmikud.tallinn.ee/last/",
-  "collection_interval": 1,
+  "collection_interval": 3,
   "cameras": [
     {
       "id": "cam104",
-      "name": "Viru väljak, suund Parnu mnt",
+      "name": "Viru väljak",
       "url": "https://ristmikud.tallinn.ee/last/cam104.jpg"
+    },
+    {
+      "id": "cam001",
+      "name": "Estonia pst - Teatri väljak",
+      "url": "https://ristmikud.tallinn.ee/last/cam001.jpg"
+    },
+    {
+      "id": "cam056",
+      "name": "Pärnu mnt - Draamateater",
+      "url": "https://ristmikud.tallinn.ee/last/cam056.jpg"
+    },
+    {
+      "id": "cam252",
+      "name": "Ahtri tn - Hobujaama tn",
+      "url": "https://ristmikud.tallinn.ee/last/cam252.jpg"
+    },
+    {
+      "id": "cam178",
+      "name": "Reidi tee - Jõe tn - Ahtri tn",
+      "url": "https://ristmikud.tallinn.ee/last/cam178.jpg"
     }
   ]
 }
