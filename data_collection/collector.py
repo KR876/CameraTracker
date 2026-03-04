@@ -42,6 +42,9 @@ class TrafficCollector:
         self.max_history_frames = 20
         self.history_lock = threading.Lock()
 
+        from database.db_manager import DatabaseManager
+        self.db = DatabaseManager()
+
         logging.info(f"Monitoring {len(self.cameras)} cameras")
 
     def get_box_center(self, box):
@@ -132,6 +135,13 @@ class TrafficCollector:
                 logging.info(
                     f"{timestamp} | {camera['name']}: {counts['total']} moving vehicles "
                     f"(cars: {counts['cars']}, buses: {counts['buses']})"
+                )
+
+                self.db.insert_detection(
+                    datetime.now().isoformat(),
+                    camera['id'],
+                    camera['name'],
+                    counts
                 )
 
                 return counts
